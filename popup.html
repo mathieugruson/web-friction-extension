@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Redirect Manager</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 10px;
+        width: 300px;
+      }
+      input {
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 5px;
+      }
+      button {
+        width: 100%;
+        padding: 10px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      ul {
+        list-style-type: none;
+        padding: 0;
+      }
+      li {
+        margin: 5px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>Manage Blocked URLs</h3>
+    <input type="text" id="urlInput" placeholder="Enter a URL to block" />
+    <button id="addUrl">Add URL</button>
+    <h4>Blocked URLs:</h4>
+    <ul id="blockedList"></ul>
+    <script src="popup.js"></script>
+  </body>
+</html>
