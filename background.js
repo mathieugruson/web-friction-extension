@@ -75,6 +75,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.action === "toggleRemoval") {
+    // Query the currently active tab
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs.length > 0) {
+        // Send a message to the content script in the active tab
+        chrome.tabs.sendMessage(tabs[0].id, message, (response) => {
+          console.log("Response from content script:", response);
+          sendResponse(response); // Relay the response back to the popup if needed
+        });
+      } else {
+        console.error("No active tab found.");
+        sendResponse({ status: "error", error: "No active tab found" });
+      }
+    });
+
+    // Indicate that the response will be sent asynchronously
+    return true;
+  }
+
   // Unknown command handler
   console.warn("Received unknown command:", message.command);
   sendResponse({ status: "error", error: "Unknown command" });

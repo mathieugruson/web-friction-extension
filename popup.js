@@ -11,6 +11,16 @@ document.addEventListener("DOMContentLoaded", () => {
     urls.forEach((url) => addBlockedUrlToList(url));
   });
 
+  chrome.storage.sync.get(["removalEnabled"], (data) => {
+    const isEnabled = data.removalEnabled || false; // Default to false
+    toggleButton.dataset.enabled = isEnabled;
+    toggleButton.textContent = isEnabled ? "Disable Removal" : "Enable Removal";
+
+    // Notify the background script of the current state
+    console.log('isEnabled ', isEnabled)
+    chrome.runtime.sendMessage({ action: "toggleRemoval", enabled: isEnabled });
+  });
+
   // Add URL to the block list and storage
   addUrlButton.addEventListener("click", () => {
     const url = urlInput.value.trim();
@@ -68,15 +78,20 @@ document.addEventListener("DOMContentLoaded", () => {
     chrome.runtime.sendMessage({ command: "updateBlockedUrls", blockedUrls: urls });
   }
 
+
   // Toggle Element Removal
   toggleButton.addEventListener("click", () => {
     const isEnabled = toggleButton.dataset.enabled === "true";
     const newState = !isEnabled;
     toggleButton.dataset.enabled = newState;
     toggleButton.textContent = newState ? "Disable Removal" : "Enable Removal";
-
+  
+    // Save the state in storage
+    chrome.storage.sync.set({ removalEnabled: newState });
+    
     chrome.runtime.sendMessage({ action: "toggleRemoval", enabled: newState });
   });
+  
 
   // Load hidden elements
   function loadHiddenElements() {
