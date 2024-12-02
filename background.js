@@ -24,7 +24,7 @@ async function updateRules(blockedUrls) {
         redirect: { url: "https://www.google.com" },
       },
       condition: {
-        urlFilter: url,
+        regexFilter: `^${url}(/|)$`, // Matches only the base URL or the exact path
         resourceTypes: ["main_frame"],
       },
     }));
@@ -50,6 +50,9 @@ chrome.storage.sync.get(["blockedUrls"], (data) => {
 
 // Handle runtime messages (e.g., from the popup)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('receive message from frontend')
+  console.log('message ', message)
+  console.log('sender ', sender)
   if (message.command === "updateBlockedUrls") {
     const blockedUrls = message.blockedUrls;
     console.log("Received new blocked URLs:", blockedUrls);
