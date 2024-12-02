@@ -3,7 +3,12 @@
     "name": "Dynamic Redirect Extension",
     "version": "1.0",
     "description": "Redirect specific websites to Google.com dynamically.",
-    "permissions": ["declarativeNetRequest", "declarativeNetRequestWithHostAccess", "scripting", "storage"],
+    "permissions": ["declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess",
+    "scripting",
+    "storage",
+    "tabs",
+    "activeTab"],
     "host_permissions": ["<all_urls>"],
     "background": {
       "service_worker": "background.js"
@@ -27,4 +32,4 @@
       "default_popup": "popup.html"
     }
   }
-  
+

@@ -4,6 +4,8 @@ let removalEnabled = false;
 let mouseoverHandler = null;
 let clickHandler = null;
 
+
+
 // Listen for messages from the background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("Message received in content script:", message);
@@ -20,10 +22,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // alert(`Element removal ${removalEnabled ? "enabled" : "disabled"}.`);
     sendResponse({ status: "success", enabled: removalEnabled });
-  } else {
+  }
+
+  else if (message.action === "restoreElement") {
+    restoreElement(message.path);
+    sendResponse({ status: "success" }); }
+    
+  else if (message.action === "getTabUrl") {
+      const url = window.location.origin; // Get the origin of the page where the content script runs
+      console.log('get URL 3 ', url)
+      sendResponse({ url });
+    }  else {
+
     console.warn("Unknown action:", message.action);
     sendResponse({ status: "error", error: "Unknown action" });
   }
+
+  
 });
 
 // Function to enable removal mode (attach event listeners)
@@ -49,6 +64,23 @@ function enableRemovalMode() {
     );
   };
 
+  function getUniqueSelector(element) {
+    if (element.id) {
+      return `#${element.id}`;
+    }
+    const path = [];
+    while (element && element.nodeType === Node.ELEMENT_NODE) {
+      let selector = element.nodeName.toLowerCase();
+      if (element.className) {
+        selector += `.${Array.from(element.classList).join('.')}`;
+      }
+      path.unshift(selector);
+      element = element.parentNode;
+    }
+    return path.join(" > ");
+  }
+  
+
   clickHandler = (event) => {
     if (!removalEnabled) return;
 
@@ -61,11 +93,24 @@ function enableRemovalMode() {
     const element = event.target;
 
     // Save the element's path and hide it
-    const path = getElementPath(element);
-    saveElementPath(path);
     element.style.display = "none";
 
-    alert("Element hidden and path saved.");
+
+  chrome.storage.sync.get(["removedElements"], (data) => {
+      const url = window.location.href;
+      const removedElements = data.removedElements || {};
+      if (!removedElements[url]) {
+        removedElements[url] = [];
+      }
+      const path = getUniqueSelector(element); // Define or implement a function to get a unique selector for the element
+      removedElements[url].push({ path, name: element.tagName || "Unknown" });
+      
+      chrome.storage.sync.set({ removedElements }, () => {
+        // Notify the popup of the new hidden element
+        // chrome.runtime.sendMessage({ action: "updateHiddenElements", element: { path, name: elementName } });
+      });
+    });
+
   };
 
   // Attach the handlers
@@ -89,68 +134,31 @@ function disableRemovalMode() {
   }
 }
 
-// Handle the Spacebar key to disable removal mode
-document.addEventListener("keydown", (event) => {
-  // Check if Spacebar is pressed and removal mode is enabled
-  if (event.code === "Space" && removalEnabled) {
-    event.preventDefault(); // Prevent default space behavior (e.g., page scrolling)
+// // Handle the Spacebar key to disable removal mode
+// document.addEventListener("keydown", (event) => {
+//   // Check if Spacebar is pressed and removal mode is enabled
+//   if (event.code === "Space" && removalEnabled) {
+//     event.preventDefault(); // Prevent default space behavior (e.g., page scrolling)
 
-    removalEnabled = false; // Disable the mode
-    alert("Element removal mode disabled.");
+//     removalEnabled = false; // Disable the mode
+//     alert("Element removal mode disabled.");
 
-    // Clean up event listeners for red outline mode
-    disableRemovalMode();
+//     // Clean up event listeners for red outline mode
+//     disableRemovalMode();
 
-    // Update the state in storage
-    chrome.storage.sync.set({ removalEnabled: false }, () => {
-      console.log("Removal mode disabled in storage.");
-    });
+//     // Update the state in storage
+//     chrome.storage.sync.set({ removalEnabled: false }, () => {
+//       console.log("Removal mode disabled in storage.");
+//     });
 
-    // Notify other parts of the extension (popup or background)
-    chrome.runtime.sendMessage({ action: "toggleRemoval", enabled: false }, (response) => {
-      console.log("Removal mode state updated via message:", response);
-    });
-  }
-});
+//     // Notify other parts of the extension (popup or background)
+//     chrome.runtime.sendMessage({ action: "toggleRemoval", enabled: false }, (response) => {
+//       console.log("Removal mode state updated via message:", response);
+//     });
+//   }
+// });
 
-// Function to generate a unique CSS path for an element
-function getElementPath(el) {
-  if (!el) return "";
-  const parts = [];
-  while (el.parentElement) {
-    let selector = el.tagName.toLowerCase();
-    if (el.id) {
-      selector += `#${el.id}`;
-      parts.unshift(selector);
-      break;
-    } else {
-      let siblingIndex = 0;
-      let sibling = el;
-      while ((sibling = sibling.previousElementSibling) != null) {
-        siblingIndex++;
-      }
-      selector += `:nth-child(${siblingIndex + 1})`;
-    }
-    parts.unshift(selector);
-    el = el.parentElement;
-  }
-  return parts.join(" > ");
-}
 
-// Function to save the element path
-function saveElementPath(path) {
-  chrome.storage.sync.get(["removedElements"], (data) => {
-    const url = window.location.href;
-    const removedElements = data.removedElements || {};
-    if (!removedElements[url]) {
-      removedElements[url] = [];
-    }
-    if (!removedElements[url].includes(path)) {
-      removedElements[url].push(path);
-    }
-    chrome.storage.sync.set({ removedElements });
-  });
-}
 
 // Function to restore a hidden element
 function restoreElement(path) {
@@ -168,8 +176,9 @@ function applyHiddenElements() {
     const removedElements = data.removedElements || {};
     const elementsToHide = removedElements[url] || [];
 
-    elementsToHide.forEach((path) => {
-      const element = document.querySelector(path);
+    elementsToHide.forEach((item) => {
+      // Ensure we use the `path` property from the stored object
+      const element = document.querySelector(item.path);
       if (element) {
         element.style.display = "none";
       }

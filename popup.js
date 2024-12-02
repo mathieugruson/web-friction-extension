@@ -5,10 +5,29 @@ document.addEventListener("DOMContentLoaded", () => {
   const toggleButton = document.getElementById("toggle-removal");
   const hiddenElementsList = document.getElementById("hidden-elements");
 
+
+  // PART OF THE CODE WHERE I LOAD MY POP-UP CONTENT
   // Load existing blocked URLs
+
+  console.log('c1')
+
   chrome.storage.sync.get(["blockedUrls"], (data) => {
     const urls = data.blockedUrls || [];
     urls.forEach((url) => addBlockedUrlToList(url));
+  });
+
+  chrome.storage.sync.get(["removedElements"], async (data) => {
+    console.log('get URL 1')
+    await chrome.runtime.sendMessage(
+      { action: "getTabUrl", enabled: true }, // Message to the background script
+      (response) => {
+        console.log("Response from background:", response);
+        const elements = data.removedElements?.[url] || [];
+        console.log('elements ', elements)
+        elements.forEach((element) => addHiddenElementToList(element));
+      }
+    );
+
   });
 
   chrome.storage.sync.get(["removalEnabled"], (data) => {
@@ -20,6 +39,10 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log('isEnabled ', isEnabled)
     chrome.runtime.sendMessage({ action: "toggleRemoval", enabled: isEnabled });
   });
+
+
+
+
 
   // Add URL to the block list and storage
   addUrlButton.addEventListener("click", () => {
@@ -55,6 +78,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     li.appendChild(removeButton);
     blockedList.appendChild(li);
+  }
+
+  function addHiddenElementToList(url) {
+    const li = document.createElement("li");
+    li.textContent = url;
+
+    const removeHiddenelementButton = document.createElement("button");
+    removeHiddenelementButton.textContent = "Remove";
+    // removeHiddenelementButton.addEventListener("click", () => {
+    //   removeHiddenElement(url);
+    // });
+
+    li.appendChild(removeButton);
+    hiddenElementsList.appendChild(li);
   }
 
   // Remove blocked URL from the list and storage
@@ -98,24 +135,55 @@ document.addEventListener("DOMContentLoaded", () => {
     chrome.storage.sync.get(["removedElements"], (data) => {
       const url = new URL(window.location.href).origin;
       const elements = data.removedElements?.[url] || [];
-      hiddenElementsList.innerHTML = "";
-
-      elements.forEach((path) => {
+      hiddenElementsList.innerHTML = ""; // Clear current list
+  
+      elements.forEach((element, index) => {
         const listItem = document.createElement("li");
-        listItem.textContent = path;
-
+        listItem.textContent = element.name || `Element ${index + 1}`;
+  
         const restoreButton = document.createElement("button");
         restoreButton.textContent = "Restore";
         restoreButton.addEventListener("click", () => {
-          chrome.runtime.sendMessage({ action: "restoreElement", path });
+          restoreElement(element.path);
         });
-
+  
         listItem.appendChild(restoreButton);
         hiddenElementsList.appendChild(listItem);
       });
     });
   }
 
-  // Refresh the hidden elements list on load
-  loadHiddenElements();
+    // Function to restore an element
+    function restoreElement(path) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs.length > 0) {
+          chrome.tabs.sendMessage(tabs[0].id, { action: "restoreElement", path });
+        }
+      });
+  
+      // Remove the element from storage
+      chrome.storage.sync.get(["removedElements"], (data) => {
+        const url = new URL(window.location.href).origin;
+        const elements = data.removedElements?.[url] || [];
+        const updatedElements = elements.filter((el) => el.path !== path);
+  
+        chrome.storage.sync.set({ removedElements: { ...data.removedElements, [url]: updatedElements } }, () => {
+          loadHiddenElements(); // Refresh the list
+        });
+      });
+    }
+  
+    // Listen for updates from the content script
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message.action === "updateHiddenElements") {
+        console.log("Hidden elements updated:", message.element);
+    
+        // Reload the hidden elements list to reflect the changes
+        loadHiddenElements();
+      }
+    });
+
+    loadHiddenElements();
+
+
 });

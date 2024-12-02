@@ -53,6 +53,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('receive message from frontend')
   console.log('message ', message)
   console.log('sender ', sender)
+
   if (message.command === "updateBlockedUrls") {
     const blockedUrls = message.blockedUrls;
     console.log("Received new blocked URLs:", blockedUrls);
@@ -94,8 +95,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.action === "getTabUrl") {
+    console.log("Getting active tab URL...");
+
+    // Query the currently active tab
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      console.log("Tabs retrieved:", tabs);
+
+      if (tabs.length > 0) {
+        // Send a message to the content script in the active tab
+        chrome.tabs.sendMessage(tabs[0].id, message, (response) => {
+          console.log("Response from content script:", response);
+          sendResponse(response); // Relay the response back to the popup
+        });
+      } else {
+        console.error("No active tab found.");
+        sendResponse({ status: "error", error: "No active tab found" });
+      }
+    });
+
+    // Must return true to indicate asynchronous response
+    return true;
+  } else {
+    sendResponse({ status: "error", error: "Unknown action" });
+  }
+
   // Unknown command handler
-  console.warn("Received unknown command:", message.command);
+  console.warn("Received unknown command:", message.action);
   sendResponse({ status: "error", error: "Unknown command" });
 });
 
